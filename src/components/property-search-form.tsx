@@ -1,68 +1,87 @@
-"use client"
+'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "./auth-provider"
 
 export function PropertySearchForm() {
-  const [url, setUrl] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    console.log('Form submitted')
     
-    if (!url) {
-      console.log('No URL provided')
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to search for properties",
+        variant: "destructive",
+      })
       return
     }
 
+    setLoading(true)
+    console.log("Form submitted")
+
+    const formData = new FormData(event.currentTarget)
+    const url = formData.get("url")
+
+    console.log("Making fetch request...")
     try {
-      setIsLoading(true)
-      console.log('Making fetch request...')
-      
-      const res = await fetch('/api/webhook', {
-        method: 'POST',
+      const response = await fetch("/api/webhook", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ url }),
       })
-      
-      console.log('Response received')
-      const data = await res.json()
-      console.log('Data:', data)
-      
+
+      console.log("Response received")
+      const data = await response.json()
+      console.log("Data:", data)
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit URL")
+      }
+
       toast({
-        title: "Success!",
-        description: "URL submitted successfully",
+        title: "Success",
+        description: "Property search request submitted successfully",
       })
-    } catch (error) {
-      console.error('Error:', error)
+    } catch (error: any) {
+      console.error("Error:", error)
       toast({
-        title: "Error!",
-        description: "Something went wrong",
+        title: "Error",
+        description: error.message || "Failed to submit property URL",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <Input
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="Enter property URL"
-        required
-      />
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? "Loading..." : "Submit"}
+      <div>
+        <Input
+          type="url"
+          name="url"
+          placeholder="Enter property URL from propertyfinder.ae, bayut.com, or dubizzle.com"
+          required
+          disabled={loading || !user}
+        />
+      </div>
+      <Button type="submit" disabled={loading || !user}>
+        {loading ? "Searching..." : "Search Property"}
       </Button>
+      {!user && (
+        <p className="text-sm text-muted-foreground">
+          Please sign in to search for properties
+        </p>
+      )}
     </form>
   )
 }

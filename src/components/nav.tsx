@@ -1,27 +1,83 @@
-import Link from 'next/link'
-import { Button } from './ui/button'
+'use client'
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "./auth-provider"
+import { supabase } from "@/lib/supabase"
+import { cn } from "@/lib/utils"
 
 export function MainNav() {
+  const pathname = usePathname()
+  const { user } = useAuth()
+
+  const navItems = [
+    {
+      href: "/dashboard",
+      label: "Search",
+      requireAuth: true
+    },
+    {
+      href: "/dashboard/history",
+      label: "History",
+      requireAuth: true
+    },
+    {
+      href: "/dashboard/tools",
+      label: "Tools",
+      requireAuth: true
+    },
+  ]
+
   return (
-    <nav className="flex items-center justify-between p-4 border-b">
-      <div className="flex items-center space-x-4">
-        <Link href="/" className="text-xl font-bold">
-          Property Scraper
-        </Link>
-        <Link href="/dashboard">
-          <Button variant="ghost">Dashboard</Button>
-        </Link>
-        <Link href="/dashboard/history">
-          <Button variant="ghost">History</Button>
-        </Link>
-        <Link href="/dashboard/credits">
-          <Button variant="ghost">Credits</Button>
-        </Link>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 flex">
+          <Link href="/" className="mr-6 flex items-center space-x-2">
+            <span className="font-bold">Property Scraper</span>
+          </Link>
+          <nav className="flex items-center space-x-6 text-sm font-medium">
+            {navItems.map((item) => {
+              if (item.requireAuth && !user) return null
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "transition-colors hover:text-foreground/80",
+                    pathname === item.href ? "text-foreground" : "text-foreground/60"
+                  )}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
+        <div className="ml-auto flex items-center space-x-4">
+          {user ? (
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-muted-foreground">
+                {user.email}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => supabase.auth.signOut()}
+              >
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            pathname !== "/auth/signin" && (
+              <Button asChild>
+                <Link href="/auth/signin">
+                  Sign In
+                </Link>
+              </Button>
+            )
+          )}
+        </div>
       </div>
-      <div className="flex items-center space-x-4">
-        <Button variant="outline">Sign In</Button>
-        <Button>Sign Up</Button>
-      </div>
-    </nav>
+    </header>
   )
 }

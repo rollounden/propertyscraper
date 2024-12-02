@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { MainNav } from "@/components/nav"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "@/components/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -19,12 +20,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning={true}>
-        <div className="relative flex min-h-screen flex-col">
-          <MainNav />
-          <div className="flex-1">{children}</div>
-          <Toaster />
-        </div>
+      <body className={inter.className}>
+        <AuthProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <MainNav />
+            <div className="flex-1">{children}</div>
+            <Toaster />
+          </div>
+        </AuthProvider>
       </body>
     </html>
   )

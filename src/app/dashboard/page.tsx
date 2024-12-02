@@ -1,46 +1,19 @@
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+'use client'
+
 import { PropertySearchForm } from "@/components/property-search-form"
 
 export default function DashboardPage() {
   return (
-    <div className="container mx-auto p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Property Search Dashboard</h1>
-        
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Submit Property URL</CardTitle>
-              <CardDescription>
-                Enter a property URL from propertyfinder.ae, bayut.com, or dubizzle.com
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PropertySearchForm />
-            </CardContent>
-          </Card>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Property Search</h2>
+        <p className="text-muted-foreground">
+          Search for property owner details from UAE real estate portals.
+        </p>
+      </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Searches</CardTitle>
-              <CardDescription>
-                Your recent property searches will appear here
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-muted-foreground">No recent searches</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="rounded-lg border p-4">
+        <PropertySearchForm />
       </div>
     </div>
   )
