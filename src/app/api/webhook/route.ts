@@ -6,104 +6,126 @@ const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL
 
 export async function POST(request: Request) {
   console.log('Webhook endpoint hit')
-  console.log('Environment MAKE_WEBHOOK_URL:', MAKE_WEBHOOK_URL) // Log the webhook URL
   
   try {
     const body = await request.json()
-    
-    // Verify webhook secret if needed
-    // const webhookSecret = process.env.WEBHOOK_SECRET
-    // if (request.headers.get('x-webhook-secret') !== webhookSecret) {
-    //   return new NextResponse('Unauthorized', { status: 401 })
-    // }
+    console.log('Received webhook data:', body)
 
-    const { searchId, success, data, error, url } = body
+    // Check if this is an initial request (has url and searchId) or Make.com response (has raw)
+    if (body.url && body.searchId) {
+      // This is the initial request - forward to Make.com
+      console.log('Forwarding request to Make.com...')
+      
+      const webhookPayload = {
+        propertyUrl: body.url,
+        searchId: body.searchId,
+        timestamp: new Date().toISOString(),
+      }
 
-    if (!url) {
-      console.error('No URL provided')
+      if (!MAKE_WEBHOOK_URL) {
+        console.error('Make.com webhook URL not configured')
+        await markSearchAsFailed(body.searchId, 'Webhook URL not configured')
+        return NextResponse.json(
+          { error: 'Webhook URL not configured' },
+          { status: 500 }
+        )
+      }
+
+      // Send to Make.com
+      const response = await fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload),
+      })
+
+      if (!response.ok) {
+        const error = `Make.com request failed: ${response.status}`
+        console.error(error)
+        await markSearchAsFailed(body.searchId, error)
+        return NextResponse.json(
+          { error },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ message: 'Search started' })
+    } 
+    else if (body.raw && body.searchId) {
+      // This is the Make.com response
+      console.log('Processing Make.com response')
+      
+      let propertyData
+      try {
+        propertyData = JSON.parse(body.raw)[0]
+        console.log('Parsed property data:', propertyData)
+      } catch (error) {
+        console.error('Failed to parse property data:', error)
+        await markSearchAsFailed(body.searchId, 'Failed to parse property data')
+        return NextResponse.json(
+          { error: 'Failed to parse property data' },
+          { status: 400 }
+        )
+      }
+
+      // Extract and organize the data
+      const propertyDetails = {
+        propertyName: propertyData.PropertyNameEn,
+        zone: propertyData.ZoneNameEn,
+        propertyType: propertyData.PropertyTypeNameEn,
+        propertyValue: propertyData.PropertyValue,
+        rooms: propertyData.RoomsCount,
+        size: propertyData.PropertySize,
+        permitNumber: propertyData.PermitNumber,
+        buildingName: propertyData.BuildingNameEn,
+        unitNumber: propertyData.PropertyUnitNumber,
+        permitEndDate: propertyData.PermitEndDate
+      }
+
+      const contactDetails = {
+        authorityName: propertyData.AuthorityNameEn,
+        licenseNumber: propertyData.LicenseNumber,
+        cardHolderNumber: propertyData.CardHolderNumber,
+        cardHolderName: propertyData.CardHolderNameEn,
+        cardHolderMobile: propertyData.CardHolderMobile,
+        cardHolderEmail: propertyData.CardHolderEmail
+      }
+
+      // Update the search result
+      const { error } = await supabase
+        .from('search_results')
+        .update({
+          status: 'completed',
+          property_details: propertyDetails,
+          contact_details: contactDetails,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', body.searchId)
+
+      if (error) {
+        console.error('Failed to update search result:', error)
+        await markSearchAsFailed(body.searchId, 'Failed to update database')
+        return NextResponse.json(
+          { error: 'Failed to update search result' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ message: 'Search result updated successfully' })
+    } 
+    else {
+      console.error('Invalid webhook payload:', body)
       return NextResponse.json(
-        { error: 'Property URL is required' },
+        { error: 'Invalid webhook payload' },
         { status: 400 }
       )
     }
-
-    if (!MAKE_WEBHOOK_URL) {
-      console.error('Webhook URL not configured')
-      return NextResponse.json(
-        { error: 'Webhook URL not configured' },
-        { status: 500 }
-      )
-    }
-
-    console.log('Preparing to send request to Make.com webhook...')
-    
-    const webhookPayload = {
-      propertyUrl: url,
-      timestamp: new Date().toISOString(),
-    }
-    console.log('Webhook payload:', webhookPayload)
-
-    // Send the URL to Make.com webhook
-    console.log('Sending POST request to:', MAKE_WEBHOOK_URL)
-    const response = await fetch(MAKE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookPayload),
-    })
-
-    console.log('Make.com response status:', response.status)
-    
-    const responseText = await response.text()
-    console.log('Raw response:', responseText)
-
-    if (!response.ok) {
-      console.error('Make.com webhook failed:', response.status, responseText)
-      throw new Error(`Failed to send webhook: ${response.status} ${responseText}`)
-    }
-
-    let result
-    try {
-      result = responseText ? JSON.parse(responseText) : {}
-    } catch (e) {
-      console.log('Response was not JSON:', responseText)
-      result = { raw: responseText }
-    }
-
-    console.log('Processed response:', result)
-
-    if (!searchId) {
-      return new NextResponse('Missing searchId', { status: 400 })
-    }
-
-    if (success && data) {
-      await updateSearchResult(searchId, data)
-    } else {
-      await markSearchAsFailed(searchId, error)
-    }
-
-    // Handle user sign up events
-    if (body.type === 'auth.signup') {
-      const { user_id } = body.data
-
-      // Insert initial credits for new user
-      const { error } = await supabase
-        .from('credits')
-        .insert({
-          user_id,
-          amount: 10 // Give 10 free credits to new users
-        })
-
-      if (error && error.code !== '23505') { // Ignore unique violation errors
-        console.error('Error initializing credits:', error)
-        return new NextResponse('Error initializing credits', { status: 500 })
-      }
-    }
-
-    return new NextResponse('OK', { status: 200 })
   } catch (error) {
-    console.error('Webhook error:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error processing webhook:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

@@ -14,6 +14,7 @@ export function PropertySearchForm() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [credits, setCredits] = useState<number>(0)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -49,6 +50,7 @@ export function PropertySearchForm() {
 
     try {
       setLoading(true)
+      setError(null)
 
       // Create search result first
       const searchResult = await createSearchResult(user.id, url)
@@ -73,7 +75,7 @@ export function PropertySearchForm() {
         },
         body: JSON.stringify({
           url,
-          searchId: searchResult.id
+          searchId: searchResult.id,
         }),
       })
 
@@ -89,6 +91,8 @@ export function PropertySearchForm() {
       // Clear form
       setUrl('')
     } catch (error) {
+      console.error('Search error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to process search')
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to process property search",
@@ -115,6 +119,7 @@ export function PropertySearchForm() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           required
+          disabled={loading}
           className="flex-1"
         />
         <Button type="submit" disabled={loading}>
@@ -122,6 +127,9 @@ export function PropertySearchForm() {
         </Button>
       </div>
 
+      {error && (
+        <p className="text-sm text-red-500">{error}</p>
+      )}
       <p className="text-sm text-muted-foreground">
         Each search costs 1 credit. Results will appear in your search history.
       </p>
