@@ -4,17 +4,16 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "./auth-provider"
-import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 
 export function MainNav() {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
 
   const navItems = [
     {
       href: "/dashboard",
-      label: "Search",
+      label: "Dashboard",
       requireAuth: true
     },
     {
@@ -23,10 +22,10 @@ export function MainNav() {
       requireAuth: true
     },
     {
-      href: "/dashboard/tools",
-      label: "Tools",
+      href: "/dashboard/credits",
+      label: "Credits",
       requireAuth: true
-    },
+    }
   ]
 
   return (
@@ -37,21 +36,18 @@ export function MainNav() {
             <span className="font-bold">Property Scraper</span>
           </Link>
           <nav className="flex items-center space-x-6 text-sm font-medium">
-            {navItems.map((item) => {
-              if (item.requireAuth && !user) return null
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "transition-colors hover:text-foreground/80",
-                    pathname === item.href ? "text-foreground" : "text-foreground/60"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
+            {user && navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "transition-colors hover:text-foreground/80",
+                  pathname === item.href ? "text-foreground" : "text-foreground/60"
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
         <div className="ml-auto flex items-center space-x-4">
@@ -62,7 +58,7 @@ export function MainNav() {
               </span>
               <Button
                 variant="outline"
-                onClick={() => supabase.auth.signOut()}
+                onClick={() => signOut()}
               >
                 Sign Out
               </Button>
